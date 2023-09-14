@@ -276,7 +276,113 @@ plot(ERP)
 title('Example 2: Event-related potentials')
 ylabel('Response','FontSize',12)
 xlabel('Message passing iterations','FontSize',12)
+%%%%%%%%%%%%%%%%%%%%%
 
+rng('shuffle')
+
+clear
+
+% priors
+D = [.5 .5]';
+
+% likelihood mapping
+A = [.7 .3;
+     .4 .6];
+ 
+% transitions
+ B = [1 0;
+      0 1];
+
+% number of timesteps
+T = 4;
+
+% number of iterations of message passing
+NumIterations = 16;
+
+% initialize posterior (Step 1)
+for t = 1:T 
+    Qs(:,t) = [.5 .5]';
+end 
+
+% fix observations sequentially (Step 2)
+% t = 1
+o{1,1} = [1 0]';   %%%%%%
+o{1,2} = [0 0]';
+o{1,3} = [0 0]';
+o{1,4} = [0 0]';
+% t = 2
+o{2,1} = [1 0]';   %%%%%%
+o{2,2} = [0 1]';   %%%%
+o{2,3} = [0 0]';
+o{2,4} = [0 0]';
+% t = 3
+o{3,1} = [1 0]';   %%%%%%
+o{3,2} = [0 1]';   %%%%
+o{3,3} = [1 0]';   %%
+o{3,4} = [0 0]';
+% t = 4
+o{4,1} = [1 0]';   %%%%%%
+o{4,2} = [0 1]';   %%%%
+o{4,3} = [1 0]';   %%
+o{4,4} = [1 0]';   %
+
+% Message Passing
+
+for t = 1:T 
+    for Ni = 1:NumIterations % (Step 8 loop of VMP)
+        for tau = 1:T % (Step 7 loop of VMP)
+            
+            % initialise depolarization variable: v = ln(s)
+            % choose an edge (Step 3 of VMP)
+            v = nat_log(Qs(:,t));
+            
+            % get correct D and B for each time point (Steps 4-5 of VMP)
+            % using using the posterior computed in Step 6B
+            if tau == 1 % first time point
+                % past (Message 1)
+                lnD = nat_log(D);
+                
+                % future (Message 2)
+                lnBs = nat_log(B'*Qs(:,tau+1));
+            elseif tau == T % last time point
+                % no contribution from future (only Message 1)
+                lnBs  = nat_log(B*Qs(:,tau-1));
+            else
+                lnBs = nat_log(B*Qs(:,tau-1)) + nat_log(B'*Qs(:,tau+1)); %(Message 1 + Message 2)
+            end 
+        
+            % likelihood (Message 3)
+            lnAo = nat_log(A'*o{t,tau});
+            
+            % calculate state prediction error: equation 24
+            if tau == 1
+                epsilon(:,Ni,t,tau) = .5*lnD + .5*lnBs + lnAo - v;
+            else  
+                epsilon(:,Ni,t,tau) = .5*lnBs + lnAo - v;
+            end 
+            
+            % (Step 6 of VMP)
+            % update depolarization variable: equation 25
+            v = v + epsilon(:,Ni,t,tau); 
+            % normalize using a softmax function to find posterior:
+            % equation 26 (Step 6A of VMP)
+            Qs(:,tau) = (exp(v)/sum(exp(v)));
+            % store Qs for firing rate plots
+            xn(Ni,:,tau,t) = Qs(:,tau);
+        end % Repeat for remaining edges (Step 7 of VMP)
+    end % Repeat until convergence/for number of iterations (Step 8 of VMP)
+end
+
+Qs; % final posterior beliefs over states
+
+disp(' ');
+disp('Posterior over states q(s) in example 2:');
+disp(' ');
+disp(Qs);
+
+
+
+%%%%%%%%%%%%%%%%%
 %% functions
 
 % natural log that replaces zero values with very small values for numerical reasons.
