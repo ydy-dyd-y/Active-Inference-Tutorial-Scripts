@@ -764,7 +764,7 @@ for t = 1:T
         %==================================================================
         L{m,t} = 1;
         for g = 1:Ng(m)
-            L{m,t} = L{m,t}.*spm_dot(A{m,g},O{m}{g,t});
+            L{m,t} = L{m,t}.*spm_dot(A'{m,g},O{m}{g,t});  % I think it should be this instead of L{m,t} = L{m,t}.*spm_dot(A{m,g},O{m}{g,t});
         end
         
         
